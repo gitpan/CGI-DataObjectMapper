@@ -1,0 +1,42 @@
+CGI-DataObjectMapper
+
+Data-Object Mapper for CGI form data
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+	perl Build.PL
+	./Build
+	./Build test
+	./Build install
+
+SUPPORT AND DOCUMENTATION
+
+After installing, you can find documentation for this module with the
+perldoc command.
+
+    perldoc CGI::DataObjectMapper
+
+You can also look for information at:
+
+    RT, CPAN's request tracker
+        http://rt.cpan.org/NoAuth/Bugs.html?Dist=CGI-DataObjectMapper
+
+    AnnoCPAN, Annotated CPAN documentation
+        http://annocpan.org/dist/CGI-DataObjectMapper
+
+    CPAN Ratings
+        http://cpanratings.perl.org/d/CGI-DataObjectMapper
+
+    Search CPAN
+        http://search.cpan.org/dist/CGI-DataObjectMapper/
+
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2009 Yuki Kimoto
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
