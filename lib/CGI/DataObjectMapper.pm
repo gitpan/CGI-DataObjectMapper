@@ -1,7 +1,7 @@
 package CGI::DataObjectMapper;
 use 5.008_001;
 
-our $VERSION = '0.0101';
+our $VERSION = '0.0102';
 
 use Simo;
 use Simo::Constrain qw( is_class_name is_hash_ref is_array_ref );
@@ -89,7 +89,8 @@ sub _parse_input{
     }
 
     unless( $container_class->can( 'new' ) ){
-         my $w = Simo::Wrapper->create( obj => $container_class )->define( values %accessors_for_class );
+        # define Container Class
+        my $w = Simo::Wrapper->create( obj => $container_class )->define( values %accessors_for_class );
     }
     
     my $container = $container_class->new;
@@ -97,6 +98,12 @@ sub _parse_input{
     foreach my $class ( keys %$data ){
         my @accessors = keys %{ $data->{ $class } };
         my $class_with_prefix = $prefix ? "${prefix}::" . $class : $class;
+        
+        eval "require $class_with_prefix"
+            unless $class_with_prefix->can( 'new' );
+        
+        croak "Cannot call '${class_with_prefix}::new'."
+            unless $class_with_prefix->can( 'new' );
         
         my $data_object = $class_with_prefix->new( %{ $data->{ $class } } );
         
@@ -117,7 +124,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0101
+Version 0.0102
 
 =head1 SYNOPSIS
     
