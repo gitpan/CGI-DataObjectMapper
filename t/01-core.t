@@ -80,17 +80,42 @@ BEGIN{
     like( $@, qr/'c3--m1' is invalid\. 'classes' must be contain a corresponging class/, 'invalid key is passed' );
 }
 
+{
+    my $o = CGI::DataObjectMapper->new( input => { 'c4--m1' => 1 }, classes => [ 'C4' ] );
+    eval{ $o->data };
+    like( $@, qr/class 'C4' must have 'ATTRS' method/, 'attr_method is not defined' );
+}
+
+{
+    my $o = CGI::DataObjectMapper->new(
+        input => {
+            'c1--m1' => 1,
+            'c1--m2' => 2,
+            'c1--m3' => 3
+        },
+        class_prefix => 'Prefix',
+        classes => [ qw( C1 ) ],
+    );
+    eval{ $o->data };
+    like( $@, qr/'Prefix::C1::m3' is not valid attr \( Original key 'c1--m3' \)/, 'not attr keys' );
+}
 
 package Prefix::C1;
 use Simo;
 
 sub m1{ ac }
 sub m2{ ac }
+sub m3{ ac }
+
+sub ATTRS{ qw/m1 m2/ }
 
 package Prefix::C1::C1;
 use Simo;
 
 sub m1_m1{ ac }
+
+sub ATTRS{ qw/m1_m1/ }
+
 
 package Prefix::C2;
 use Simo;
@@ -99,4 +124,11 @@ sub m1{ ac }
 sub m2{ ac }
 
 sub m1_m1{ ac }
+
+sub ATTRS{ qw/m1 m2 m1_m1/ }
+
+package C4;
+use Simo;
+
+sub m1{ ac }
 

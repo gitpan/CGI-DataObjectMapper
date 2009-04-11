@@ -1,7 +1,7 @@
 package CGI::DataObjectMapper;
 use 5.008_001;
 
-our $VERSION = '0.0102';
+our $VERSION = '0.0103';
 
 use Simo;
 use Simo::Constrain qw( is_class_name is_hash_ref is_array_ref );
@@ -17,6 +17,9 @@ sub class_prefix{ ac default => '', constrain => sub{ $_ eq '' || is_class_name 
 sub default_class{ ac default => '' }
 sub classes{ ac constrain => \&is_array_ref }
 
+sub attr_method{ ac default => 'ATTRS' }
+
+
 sub data{ ac auto_build => 1, read_only => 1 }
 sub build_data{
     my $self = shift;
@@ -27,10 +30,12 @@ sub decode{ ac }
 
 sub REQUIRED_ATTRS{ qw/input classes/ }
 
+
 sub _parse_input{
     my $self = shift;
     my $input = $self->input;
     my $data = {};
+    my $original_key = {};
     
     my %valid_class = map{ $_ => 1 } @{ $self->classes };
     my $default_class = $self->default_class;
@@ -43,6 +48,7 @@ sub _parse_input{
     my %ignore = map{ $_ => 1 } @{ $self->ignore };
     
     foreach my $key ( keys %$input ){
+        
         next if $ignore{ $key };
         
         my $key_arrange = $key =~ /--/ ? $key : "--$key";
@@ -74,6 +80,7 @@ sub _parse_input{
         }
         
         $data->{ $class }{ $accessor } = $val;
+        $original_key->{ $class }{ $accessor } = $key;
     }
     
     
@@ -95,6 +102,9 @@ sub _parse_input{
     
     my $container = $container_class->new;
     
+    my $attr_method_map = $self->attr_method;
+    $attr_method_map = { other => $attr_method_map } unless ref $attr_method_map;
+    
     foreach my $class ( keys %$data ){
         my @accessors = keys %{ $data->{ $class } };
         my $class_with_prefix = $prefix ? "${prefix}::" . $class : $class;
@@ -105,6 +115,20 @@ sub _parse_input{
         croak "Cannot call '${class_with_prefix}::new'."
             unless $class_with_prefix->can( 'new' );
         
+        my @attrs = keys %{ $data->{ $class } };
+        my $attr_method = $attr_method_map->{ $class } || $attr_method_map->{ other };
+        
+        croak "class '$class_with_prefix' must have '$attr_method' method."
+            unless $class_with_prefix->can( $attr_method );
+        
+        my %valid_attr = map{ $_ => 1 } $class_with_prefix->$attr_method;
+        
+        foreach my $attr ( @attrs ){
+            unless( $valid_attr{ $attr } ){
+                my $original_key = $original_key->{ $class }{ $attr };
+                croak "'${class_with_prefix}::$attr' is not valid attr ( Original key '$original_key' )";
+            }
+        }
         my $data_object = $class_with_prefix->new( %{ $data->{ $class } } );
         
         my $accessor_for_class = $accessors_for_class{ $class };
@@ -124,7 +148,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0102
+Version 0.0103
 
 =head1 SYNOPSIS
     
@@ -156,12 +180,16 @@ Version 0.0102
     sub age{ ac }
     sub country_name{ ac }
     
+    sub ATTRS{ qw( name age country_name ) }
+    
     
     package YourApp::Data::Book;
     use Simo;
     
     sub title{ ac }
     sub author{ ac }
+    
+    sub ATTRS{ qw( title author ) }
     
     # Folloing is post data
     # This data is mapping YourApp::Person and YourApp::Data::Book
@@ -227,6 +255,15 @@ You can get title value this way.
 is mapped class names. this must be array ref.
 [ qw( Person Data::Book ) ] etc.
 
+=head2 attr_method
+
+is method name to get attributes list
+
+default is ATTRS. you should define ATTRS method in your class.
+
+You also set method for each class.
+
+    $mapper->attr_method( { Perlson => 'columns', other => 'ATTRS' } )
 
 =head2 data
 

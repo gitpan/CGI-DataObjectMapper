@@ -18,7 +18,8 @@ BEGIN{
             'c2--m2' => 4,
             'c1-c1--m1-m1' => 5,
         },
-        classes => [ qw( C1 C1::C1 C2 ) ]
+        classes => [ qw( C1 C1::C1 C2 ) ],
+        attr_method => { C1 => 'columns', other => 'attr_list' }
     );
     
     my $data = $o->data;
@@ -43,10 +44,14 @@ use Simo;
 sub m1{ ac }
 sub m2{ ac }
 
+sub columns{ qw/m1 m2/ }
+
 package C1::C1;
 use Simo;
 
 sub m1_m1{ ac }
+
+sub attr_list{ qw/m1_m1/ }
 
 package C2;
 use Simo;
@@ -56,3 +61,4 @@ sub m2{ ac }
 
 sub m1_m1{ ac }
 
+sub attr_list{ qw/m1 m2 m1_m1/ }

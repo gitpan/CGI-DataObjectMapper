@@ -18,7 +18,8 @@ BEGIN{
             'c1--m3' => 3,
          },
          ignore => [ 'c1--m1', 'c1--m2' ],
-         classes => [ 'C1' ]
+         classes => [ 'C1' ],
+         attr_method => 'columns'
     );
     
     is_deeply( $o->data->c1, { m3 => 3 }, 'ignore' );
@@ -31,4 +32,6 @@ use Simo;
 sub m1{ ac }
 sub m2{ ac }
 sub m3{ ac }
+
+sub columns{ qw/m1 m2 m3/ }
 
