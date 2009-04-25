@@ -12,9 +12,9 @@ my $builder = Module::Build->new(
         'Simo' => 0.1007,
     },
     requires => {
-        'Simo' => 0.1007,
+        'Simo' => 0.1106,
         'Simo::Constrain' => 0.0201,
-        'Simo::Wrapper' => 0.0220
+        'Simo::Util' => 0.0301
     },
     add_to_cleanup      => [ 'CGI-DataObjectMapper-*' ],
     create_makefile_pl => 'traditional',

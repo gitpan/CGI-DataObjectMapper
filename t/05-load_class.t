@@ -12,12 +12,12 @@ use lib 't/05-load_class';
             'c1--m1' => 1,
         },
         class_prefix => 'Prefix',
-        classes => [ qw( C1 ) ]
+        classes => { C1 => [ 'm1' ] }
     );
     
-    my $data = $o->data;
+    my $obj = $o->obj;
     
-    my $c1 = $data->c1;
+    my $c1 = $obj->c1;
     
     isa_ok( $c1, "Prefix::C1" );
     is_deeply( $c1, { m1 => 1 }, 'load module' );
@@ -28,9 +28,9 @@ use lib 't/05-load_class';
         input => {
             'ciilaksdjfie90892lasfj93k--m1' => 1,
         },,
-        classes => [ qw( Ciilaksdjfie90892lasfj93k ) ]
+        classes => { Ciilaksdjfie90892lasfj93k => [ 'm1' ] }
     );
     
-    eval{ $o->data };
+    eval{ $o->obj };
     like( $@, qr/Cannot call 'Ciilaksdjfie90892lasfj93k::new'/, 'class is no exist' );
 }

@@ -16,13 +16,13 @@ BEGIN{
             'c1--m2' => [ qw( あ い ) ],
         },
         class_prefix => 'Prefix',
-        classes => [ qw( C1 ) ],
+        classes => { C1 => [ qw/m1 m2/ ] },
         decode => 'utf8'
     );
     
-    my $data = $o->data;
+    my $obj = $o->obj;
     
-    my $c1 = $data->c1;
+    my $c1 = $obj->c1;
     ok( utf8::is_utf8( $c1->m1 ), 'decode' );
     
     ok( utf8::is_utf8( $c1->m2->[0] ), 'decode ary1' );

@@ -1,6 +1,6 @@
 ---
 name: CGI-DataObjectMapper
-version: 0.0103
+version: 0.0104
 author:
   - 'Yuki Kimoto <kimoto.yuki@gmail.com>'
 abstract: Data-Object Mapper for CGI form data
@@ -8,16 +8,16 @@ license: perl
 resources:
   license: ~
 requires:
-  Simo: 0.1007
+  Simo: 0.1106
   Simo::Constrain: 0.0201
-  Simo::Wrapper: 0.022
+  Simo::Util: 0.0301
 build_requires:
   Simo: 0.1007
   Test::More: 0
 provides:
   CGI::DataObjectMapper:
     file: lib/CGI/DataObjectMapper.pm
-    version: 0.0103
+    version: 0.0104
 generated_by: Module::Build version 0.31012
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

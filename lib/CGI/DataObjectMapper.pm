@@ -1,112 +1,124 @@
 package CGI::DataObjectMapper;
+use Simo;
+
 use 5.008_001;
 
-our $VERSION = '0.0103';
+our $VERSION = '0.0104';
 
-use Simo;
 use Simo::Constrain qw( is_class_name is_hash_ref is_array_ref );
-use Simo::Wrapper;
+use Simo::Util qw( define_class decode_values );
 
 use Carp;
 use File::Basename 'basename';
+require Encode;
 
 sub input{ ac constrain => \&is_hash_ref }
-sub ignore{ ac default => [], constrain => \&is_array_ref }
 
 sub class_prefix{ ac default => '', constrain => sub{ $_ eq '' || is_class_name }, }
-sub default_class{ ac default => '' }
-sub classes{ ac constrain => \&is_array_ref }
+sub classes{ ac constrain => \&is_hash_ref }
 
-sub attr_method{ ac default => 'ATTRS' }
-
-
-sub data{ ac auto_build => 1, read_only => 1 }
-sub build_data{
+sub obj{ ac auto_build => 1, read_only => 1 }
+sub build_obj{
     my $self = shift;
-    $self->{ data } = $self->_parse_input;
+    $self->{ obj } = $self->_map_input_to_object;
 }
 
 sub decode{ ac }
+sub ignore{ ac default => [], constrain => \&is_array_ref }
 
 sub REQUIRED_ATTRS{ qw/input classes/ }
 
 
-sub _parse_input{
+sub _map_input_to_object{
+    my $self = shift;
+    my $valid_classes = $self->_rearrange_classes;
+    my $input = $self->_rearrange_input;
+    
+    $self->_check_input( $input, $valid_classes );
+    
+    my $obj = $self->_create_object( $input );
+    
+    return $obj;
+}
+
+# rearrange classes
+sub _rearrange_classes{
+    my $self = shift;
+    my $classes = $self->classes;
+    
+    my $rearranged_classes = {};
+    foreach my $class ( keys %{ $self->classes } ){
+        my $attrs = $classes->{ $class };
+        croak "each class of 'classes' has attribute list" unless ref $attrs eq 'ARRAY';
+        foreach my $attr ( @{ $classes->{ $class } } ){
+            $rearranged_classes->{ $class }{ $attr } = 1;
+        }
+    }
+    return $rearranged_classes;
+}
+
+sub _rearrange_input{
     my $self = shift;
     my $input = $self->input;
-    my $data = {};
-    my $original_key = {};
     
-    my %valid_class = map{ $_ => 1 } @{ $self->classes };
-    my $default_class = $self->default_class;
-    
-    if( $default_class ){
-        croak "'classes' must be contain 'default_class'"
-            unless $valid_class{ $default_class };
-    }
-    
+    my $rearranged_input = {};
     my %ignore = map{ $_ => 1 } @{ $self->ignore };
-    
+
     foreach my $key ( keys %$input ){
-        
         next if $ignore{ $key };
-        
-        my $key_arrange = $key =~ /--/ ? $key : "--$key";
-        
-        my ( $class, $accessor ) = split( /--/, $key_arrange );
-        $class ||= $default_class;
-        next unless $accessor;
+
+        my ( $class, $attr ) = split( /--/, $key );
+        croak "Class must be specified in key '$key'" unless $class;
+        croak "Attribute must be specified in key '$key'" unless $attr;
         
         my @class_parts = split( /-/, $class );
         @class_parts = map{ ucfirst lc $_ } @class_parts;
         $class = join( '::', @class_parts );
         
-        my @accessor_parts = split( /-/, $accessor );
-        @accessor_parts = map{ lc $_ } @accessor_parts;
-        $accessor = join( '_', @accessor_parts );
+        my @attr_parts = split( /-/, $attr );
+        @attr_parts = map{ lc $_ } @attr_parts;
+        $attr = join( '_', @attr_parts );
         
-        croak "'$key' is invalid. 'classes' must be contain a corresponging class."
-            unless $valid_class{ $class };
-        
-        my $val = $input->{ $key };
-        if( my $decode = $self->decode ){
-            require Encode;
-            if( ref $val eq 'ARRAY' ){
-               @{ $val } = map{ Encode::decode( $decode, $_ ) } @{ $val }
-            }
-            else{
-                $val = Encode::decode( $decode, $val );
+        $rearranged_input->{ $class }{ $attr }{ original_key } = $key ;
+        $rearranged_input->{ $class }{ $attr }{ val } = $input->{ $key };
+    }
+    return $rearranged_input;
+}
+
+sub _check_input{
+    my ( $self, $input, $valid_classes ) = @_;
+    
+    foreach my $class ( keys %$input ){
+        foreach my $attr ( keys %{ $input->{ $class } } ){
+            unless( $valid_classes->{ $class }{ $attr } ){
+                my $original_key = $input->{ $class }{ $attr }{ original_key };
+                croak "'$original_key' is invalid. 'classes' must be contain a corresponging class and attribute."
             }
         }
-        
-        $data->{ $class }{ $accessor } = $val;
-        $original_key->{ $class }{ $accessor } = $key;
     }
-    
-    
-    my $prefix = $self->class_prefix;
+}
+
+sub _create_object{
+    my ( $self, $input ) = @_;
     my $container_class = __PACKAGE__ . "::Container::Process$$";
     
-    my %accessors_for_class;
-    foreach ( keys %$data ){
+    my %accessors_of_container;
+    foreach ( keys %$input ){
         my $accessor = $_;
         $accessor =~ s/::/_/g;
         $accessor = lc $accessor;
-        $accessors_for_class{ $_ } = $accessor;
+        $accessors_of_container{ $_ } = $accessor;
     }
 
     unless( $container_class->can( 'new' ) ){
         # define Container Class
-        my $w = Simo::Wrapper->create( obj => $container_class )->define( values %accessors_for_class );
+        define_class( $container_class, values %accessors_of_container );
     }
     
-    my $container = $container_class->new;
+    my $container_obj = $container_class->new;
+    my $prefix = $self->class_prefix;
     
-    my $attr_method_map = $self->attr_method;
-    $attr_method_map = { other => $attr_method_map } unless ref $attr_method_map;
-    
-    foreach my $class ( keys %$data ){
-        my @accessors = keys %{ $data->{ $class } };
+    foreach my $class ( keys %$input ){
         my $class_with_prefix = $prefix ? "${prefix}::" . $class : $class;
         
         eval "require $class_with_prefix"
@@ -115,28 +127,25 @@ sub _parse_input{
         croak "Cannot call '${class_with_prefix}::new'."
             unless $class_with_prefix->can( 'new' );
         
-        my @attrs = keys %{ $data->{ $class } };
-        my $attr_method = $attr_method_map->{ $class } || $attr_method_map->{ other };
+        my @attrs = keys %{ $input->{ $class } };
         
-        croak "class '$class_with_prefix' must have '$attr_method' method."
-            unless $class_with_prefix->can( $attr_method );
         
-        my %valid_attr = map{ $_ => 1 } $class_with_prefix->$attr_method;
-        
-        foreach my $attr ( @attrs ){
-            unless( $valid_attr{ $attr } ){
-                my $original_key = $original_key->{ $class }{ $attr };
-                croak "'${class_with_prefix}::$attr' is not valid attr ( Original key '$original_key' )";
-            }
+        my $obj = $class_with_prefix->new;
+        foreach my $attr ( keys %{ $input->{ $class } } ){
+            croak "class '$class_with_prefix' must have '$attr' method."
+                unless $class_with_prefix->can( $attr );
+            
+            $obj->$attr( $input->{ $class }{ $attr }{ val } );
         }
-        my $data_object = $class_with_prefix->new( %{ $data->{ $class } } );
         
-        my $accessor_for_class = $accessors_for_class{ $class };
-        $container->$accessor_for_class( $data_object );
+        my $decode = $self->decode;
+        decode_values( $obj, $decode, @attrs ) if $decode;
+        
+        my $accessor_of_container = $accessors_of_container{ $class };
+        $container_obj->$accessor_of_container( $obj );
     }
-    return $container;
+    return $container_obj;
 }
-
 
 =head1 NAME
 
@@ -148,7 +157,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0103
+Version 0.0104
 
 =head1 SYNOPSIS
     
@@ -158,19 +167,21 @@ Version 0.0103
     my $mapper = CGI::DataObjectMapper->new( 
         input => $q->Vars, # this is hash ref
         class_prefix => 'YourApp',
-        classes => [ qw( Person Data::Book ) ],
-        ignore => [ 'rm' ]
+        classes => { 
+            Person => qw/name age contry_name/,
+            Data::Book => qw/title author/
+        },
         decode => 'utf8',
     );
     
-    my $data = $mapper->data; # get mapped object
+    my $obj = $mapper->obj; # get mapped object
     
-    my $person_name = $data->person->name;
-    my $person_age = $data->person->age;
-    my $person_country_name = $data->person->country_name;
+    my $person_name = $obj->person->name;
+    my $person_age = $obj->person->age;
+    my $person_country_name = $obj->person->country_name;
     
-    my $book_name = $data->data_book->title;
-    my $book_author = $data->data_book->author;
+    my $book_name = $obj->data_book->title;
+    my $book_author = $obj->data_book->author;
     
     
     package YourApp::Person;
@@ -179,17 +190,12 @@ Version 0.0103
     sub name{ ac }
     sub age{ ac }
     sub country_name{ ac }
-    
-    sub ATTRS{ qw( name age country_name ) }
-    
-    
+   
     package YourApp::Data::Book;
     use Simo;
     
     sub title{ ac }
     sub author{ ac }
-    
-    sub ATTRS{ qw( title author ) }
     
     # Folloing is post data
     # This data is mapping YourApp::Person and YourApp::Data::Book
@@ -222,10 +228,6 @@ Usually get hash data to use CGI::Vars method
    my $q = CGI->new;
    $q->Vars;
 
-=head2 ignore
-
-is ignored attribute. This must be array ref.
-
 =head2 class_prefix
 
 is class prefix. 
@@ -248,37 +250,27 @@ title is attribute of Data::Book
 
 You can get title value this way.
 
-    my $title = $data->data_book->title;
+    my $title = $obj->data_book->title;
 
 =head2 classes
 
 is mapped class names. this must be array ref.
 [ qw( Person Data::Book ) ] etc.
 
-=head2 attr_method
+=head2 obj
 
-is method name to get attributes list
-
-default is ATTRS. you should define ATTRS method in your class.
-
-You also set method for each class.
-
-    $mapper->attr_method( { Perlson => 'columns', other => 'ATTRS' } )
-
-=head2 data
-
-is converted data.
+is converted object.
 
 You can get object.
 
-    $data = $mapper->data;
+    $data = $mapper->obj;
     
-    my $person_name = $data->person->name;
-    my $person_age = $data->person->age;
-    my $person_country_name = $data->person->country_name;
+    my $person_name = $obj->person->name;
+    my $person_age = $obj->person->age;
+    my $person_country_name = $obj->person->country_name;
     
-    my $book_name = $data->data_book->title;
-    my $book_author = $data->data_book->author;
+    my $book_name = $obj->data_book->title;
+    my $book_author = $obj->data_book->author;
 
 =head2 decode
 
@@ -286,19 +278,24 @@ is charset when data is decoded. 'utf8' etc.
 
 if this is not specify, decode is not done.
 
+=head2 ignore
+
+is ignored attribute. This must be array ref.
+
+
 =head1 Method
 
-=head2 build_data
+=head2 build_obj
 
-is build data from input information.
+is build obj from input information.
 
-This is automatically called when data method is called.
+This is automatically called when obj method is called.
 
 If you set new input data, Please call this method
 
     $mapper->input( { a => 1, b => 2 } );
-    $mapper->build_data;
-    my $data = $mapper->data; # data is updated
+    $mapper->build_obj;
+    my $obj = $mapper->obj; # data is updated
 
 =head1 AUTHOR
 
