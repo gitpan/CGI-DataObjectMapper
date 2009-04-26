@@ -1,6 +1,6 @@
 ---
 name: CGI-DataObjectMapper
-version: 0.0104
+version: 0.0105
 author:
   - 'Yuki Kimoto <kimoto.yuki@gmail.com>'
 abstract: Data-Object Mapper for CGI form data
@@ -17,7 +17,7 @@ build_requires:
 provides:
   CGI::DataObjectMapper:
     file: lib/CGI/DataObjectMapper.pm
-    version: 0.0104
+    version: 0.0105
 generated_by: Module::Build version 0.31012
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

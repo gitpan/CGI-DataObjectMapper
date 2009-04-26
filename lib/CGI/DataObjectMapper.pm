@@ -3,40 +3,33 @@ use Simo;
 
 use 5.008_001;
 
-our $VERSION = '0.0104';
+our $VERSION = '0.0105';
 
-use Simo::Constrain qw( is_class_name is_hash_ref is_array_ref );
-use Simo::Util qw( define_class decode_values );
+use Simo::Constrain qw( is_class_name is_hash_ref );
+use Simo::Util qw( decode_values );
 
 use Carp;
 use File::Basename 'basename';
 require Encode;
 
-sub input{ ac constrain => \&is_hash_ref }
-
 sub class_prefix{ ac default => '', constrain => sub{ $_ eq '' || is_class_name }, }
 sub classes{ ac constrain => \&is_hash_ref }
 
-sub obj{ ac auto_build => 1, read_only => 1 }
-sub build_obj{
-    my $self = shift;
-    $self->{ obj } = $self->_map_input_to_object;
-}
-
 sub decode{ ac }
-sub ignore{ ac default => [], constrain => \&is_array_ref }
 
-sub REQUIRED_ATTRS{ qw/input classes/ }
+sub unmapped{ ac }
 
+sub REQUIRED_ATTRS{ qw/classes/ }
 
-sub _map_input_to_object{
-    my $self = shift;
-    my $valid_classes = $self->_rearrange_classes;
-    my $input = $self->_rearrange_input;
+sub map_to_objects{
+    my ( $self, @input ) = @_;
     
-    $self->_check_input( $input, $valid_classes );
+    @input = %{ $input[0] } if ref $input[0] eq 'HASH';
+    croak "args must be hash or hash ref." if @input % 2;
     
-    my $obj = $self->_create_object( $input );
+    my $rearranged_input = $self->_rearrange_input( @input );
+    
+    my $obj = $self->_create_objects( $rearranged_input );
     
     return $obj;
 }
@@ -58,18 +51,21 @@ sub _rearrange_classes{
 }
 
 sub _rearrange_input{
-    my $self = shift;
-    my $input = $self->input;
+    my ( $self, %input ) = @_;
     
     my $rearranged_input = {};
-    my %ignore = map{ $_ => 1 } @{ $self->ignore };
+    my $valid_classes = $self->_rearrange_classes;
+    
+    my $unmapped = [];
 
-    foreach my $key ( keys %$input ){
-        next if $ignore{ $key };
+    foreach my $key ( keys %input ){
 
         my ( $class, $attr ) = split( /--/, $key );
-        croak "Class must be specified in key '$key'" unless $class;
-        croak "Attribute must be specified in key '$key'" unless $attr;
+        
+        if( !$class || !$attr ){
+            push @{ $unmapped }, $key;
+            next;
+        }
         
         my @class_parts = split( /-/, $class );
         @class_parts = map{ ucfirst lc $_ } @class_parts;
@@ -79,46 +75,32 @@ sub _rearrange_input{
         @attr_parts = map{ lc $_ } @attr_parts;
         $attr = join( '_', @attr_parts );
         
+        unless( $valid_classes->{ $class }{ $attr } ){
+            push @{ $unmapped }, $key;
+            next;
+        }
+        
         $rearranged_input->{ $class }{ $attr }{ original_key } = $key ;
-        $rearranged_input->{ $class }{ $attr }{ val } = $input->{ $key };
+        
+        my $val = $input{ $key };
+        if( !ref $val && $val =~ /\0/ ){
+            $val = [ split( /\0/, $val, -1 ) ];
+        }
+        $rearranged_input->{ $class }{ $attr }{ val } = $val;
     }
+    
+    $self->unmapped( $unmapped );
     return $rearranged_input;
 }
 
-sub _check_input{
-    my ( $self, $input, $valid_classes ) = @_;
-    
-    foreach my $class ( keys %$input ){
-        foreach my $attr ( keys %{ $input->{ $class } } ){
-            unless( $valid_classes->{ $class }{ $attr } ){
-                my $original_key = $input->{ $class }{ $attr }{ original_key };
-                croak "'$original_key' is invalid. 'classes' must be contain a corresponging class and attribute."
-            }
-        }
-    }
-}
-
-sub _create_object{
+sub _create_objects{
     my ( $self, $input ) = @_;
-    my $container_class = __PACKAGE__ . "::Container::Process$$";
+    my $objects = {};
     
-    my %accessors_of_container;
-    foreach ( keys %$input ){
-        my $accessor = $_;
-        $accessor =~ s/::/_/g;
-        $accessor = lc $accessor;
-        $accessors_of_container{ $_ } = $accessor;
-    }
-
-    unless( $container_class->can( 'new' ) ){
-        # define Container Class
-        define_class( $container_class, values %accessors_of_container );
-    }
-    
-    my $container_obj = $container_class->new;
     my $prefix = $self->class_prefix;
+    my @classes = keys %{ $self->classes };
     
-    foreach my $class ( keys %$input ){
+    foreach my $class ( @classes ){
         my $class_with_prefix = $prefix ? "${prefix}::" . $class : $class;
         
         eval "require $class_with_prefix"
@@ -129,22 +111,20 @@ sub _create_object{
         
         my @attrs = keys %{ $input->{ $class } };
         
-        
-        my $obj = $class_with_prefix->new;
-        foreach my $attr ( keys %{ $input->{ $class } } ){
+        my $object = $class_with_prefix->new;
+        foreach my $attr ( @attrs ){
             croak "class '$class_with_prefix' must have '$attr' method."
                 unless $class_with_prefix->can( $attr );
             
-            $obj->$attr( $input->{ $class }{ $attr }{ val } );
+            $object->$attr( $input->{ $class }{ $attr }{ val } );
         }
         
         my $decode = $self->decode;
-        decode_values( $obj, $decode, @attrs ) if $decode;
+        decode_values( $object, $decode, @attrs ) if $decode;
         
-        my $accessor_of_container = $accessors_of_container{ $class };
-        $container_obj->$accessor_of_container( $obj );
+        $objects->{ $class } = $object;
     }
-    return $container_obj;
+    return $objects;
 }
 
 =head1 NAME
@@ -157,7 +137,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0104
+Version 0.0105
 
 =head1 SYNOPSIS
     
@@ -165,23 +145,24 @@ Version 0.0104
     
     # create mapper object
     my $mapper = CGI::DataObjectMapper->new( 
-        input => $q->Vars, # this is hash ref
         class_prefix => 'YourApp',
         classes => { 
             Person => qw/name age contry_name/,
-            Data::Book => qw/title author/
+            'Data::Book' => qw/title author/
         },
         decode => 'utf8',
     );
     
-    my $obj = $mapper->obj; # get mapped object
+    my $objects = $mapper->map_to_objects( $q->Vars );
     
-    my $person_name = $obj->person->name;
-    my $person_age = $obj->person->age;
-    my $person_country_name = $obj->person->country_name;
+    my $person = $objects->{ 'Person' };
+    my $person_name = $person->name;
+    my $person_age = $person->age;
+    my $person_country_name = $person->country_name;
     
-    my $book_name = $obj->data_book->title;
-    my $book_author = $obj->data_book->author;
+    my $book = $objects->{ 'Data::Book' };
+    my $book_title = $data_book->title;
+    my $book_author = $data_book->author;
     
     
     package YourApp::Person;
@@ -205,6 +186,7 @@ Version 0.0104
       
       <input type="text" "name="person--name" value="some" />
       <input type="text" name="person--age" value="some" />
+      <input type="text" name="person--country-name" value="some" />
       
       <input type="text" name="data-book--title" value="some" />
       <input type="text" name="data-book--author" value="some" />
@@ -219,9 +201,6 @@ and decode data if you want.
     
 =head1 ACCESSORS
 
-=head2 input
-
-is input data. This must be hash ref.
 
 Usually get hash data to use CGI::Vars method
 
@@ -234,43 +213,16 @@ is class prefix.
 
 I want you to specify this value, because Some class names may be conficted.
 
-=head2 default_class
-
-is default class when class name cannot get form input attribute name.
-
-    <input type="text" name="title" > # class is omited
-
-    my $mapper = CGI::DataObjectMapper->new( 
-        input => $q->Vars,
-        default_class => 'Data::Book',
-        classes => [ qw( Person Data::Book ) ],
-    );
-
-title is attribute of Data::Book
-
-You can get title value this way.
-
-    my $title = $obj->data_book->title;
-
 =head2 classes
 
 is mapped class names. this must be array ref.
-[ qw( Person Data::Book ) ] etc.
-
-=head2 obj
-
-is converted object.
-
-You can get object.
-
-    $data = $mapper->obj;
     
-    my $person_name = $obj->person->name;
-    my $person_age = $obj->person->age;
-    my $person_country_name = $obj->person->country_name;
-    
-    my $book_name = $obj->data_book->title;
-    my $book_author = $obj->data_book->author;
+    {
+        Person => qw/name age contry_name/,
+        'Data::Book' => qw/title author/
+    }
+
+etc.
 
 =head2 decode
 
@@ -278,24 +230,31 @@ is charset when data is decoded. 'utf8' etc.
 
 if this is not specify, decode is not done.
 
-=head2 ignore
-
-is ignored attribute. This must be array ref.
-
 
 =head1 Method
 
-=head2 build_obj
+=head2 map_to_objects
 
-is build obj from input information.
+convert input to objects.
 
-This is automatically called when obj method is called.
+You can get object.
 
-If you set new input data, Please call this method
+    my $objects = $mapper->map_to_objects( $q->Vars );
+    
+    my $person = $objects->{ 'Person' };
+    my $person_name = $person->name;
+    my $person_age = $person->age;
+    my $person_country_name = $person->country_name;
+    
+    my $book = $objects->{ 'Data::Book' };
+    my $book_title = $data_book->title;
+    my $book_author = $data_book->author;
 
-    $mapper->input( { a => 1, b => 2 } );
-    $mapper->build_obj;
-    my $obj = $mapper->obj; # data is updated
+=head2 unmapped
+
+You can get unmapped key after calling map_to_objects
+
+    my $unmapped = $mapper->unmapped;
 
 =head1 AUTHOR
 
