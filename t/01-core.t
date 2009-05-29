@@ -86,17 +86,9 @@ BEGIN{
     eval{ $o->class_prefix( '' ) };
     ok( !$@, "class_prefix set '' ok" );
     
-    eval{ $o->class_prefix( '~' ) };
-    ok( $@, "class_prefix pass not class name" );
-    
-    eval{ $o->classes( 1 ) };
-    ok( $@, "classes is not hash ref" );
 }
 
 {
-    eval{ CGI::DataObjectMapper->new };
-    ok( $@, 'calsses is required' );
-    
     my $o = CGI::DataObjectMapper->new( classes => { C1 => 1 } );
     eval{ $o->map_to_objects( { 'c1--m1' => 1 } ) };
     like( $@, qr/each class of 'classes' has attribute list/, 'each class must be array ref' );

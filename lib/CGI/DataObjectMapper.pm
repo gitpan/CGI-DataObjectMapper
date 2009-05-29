@@ -1,25 +1,21 @@
 package CGI::DataObjectMapper;
-use Simo;
+use Object::Simple;
 
 use 5.008_001;
 
-our $VERSION = '0.0105';
+our $VERSION = '0.0106';
 
-use Simo::Constrain qw( is_class_name is_hash_ref );
+use Object::Simple::Constraint qw( is_class_name );
 use Simo::Util qw( decode_values );
 
 use Carp;
 use File::Basename 'basename';
 require Encode;
 
-sub class_prefix{ ac default => '', constrain => sub{ $_ eq '' || is_class_name }, }
-sub classes{ ac constrain => \&is_hash_ref }
-
-sub decode{ ac }
-
-sub unmapped{ ac }
-
-sub REQUIRED_ATTRS{ qw/classes/ }
+sub class_prefix : Attr {default => ''}
+sub classes      : Attr {}
+sub decode       : Attr {}
+sub unmapped     : Attr {}
 
 sub map_to_objects{
     my ( $self, @input ) = @_;
@@ -127,6 +123,8 @@ sub _create_objects{
     return $objects;
 }
 
+Object::Simple->end; # End of Object::Simple!
+
 =head1 NAME
 
 CGI::DataObjectMapper - Data-Object Mapper for CGI form data
@@ -137,7 +135,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0105
+Version 0.0106
 
 =head1 SYNOPSIS
     
@@ -166,17 +164,21 @@ Version 0.0105
     
     
     package YourApp::Person;
-    use Simo;
+    use Object::Simple;
     
-    sub name{ ac }
-    sub age{ ac }
-    sub country_name{ ac }
+    sub name : Attr {}
+    sub age : Attr {}
+    sub country_name : Attr {}
+    
+    Object::Simple->end;
    
     package YourApp::Data::Book;
-    use Simo;
+    use Object::Simple;
     
-    sub title{ ac }
-    sub author{ ac }
+    sub title : Attr {}
+    sub author : Attr {}
+    
+    Object::Simple->end;
     
     # Folloing is post data
     # This data is mapping YourApp::Person and YourApp::Data::Book

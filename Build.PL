@@ -12,8 +12,8 @@ my $builder = Module::Build->new(
         'Simo' => 0.1007,
     },
     requires => {
-        'Simo' => 0.1106,
-        'Simo::Constrain' => 0.0201,
+        'Object::Simple' => 0.0203,
+        'Object::Simple::Constraint' => 0,
         'Simo::Util' => 0.0301
     },
     add_to_cleanup      => [ 'CGI-DataObjectMapper-*' ],

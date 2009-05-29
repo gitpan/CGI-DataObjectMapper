@@ -8,9 +8,10 @@ WriteMakefile
           'VERSION_FROM' => 'lib/CGI/DataObjectMapper.pm',
           'PREREQ_PM' => {
                            'Test::More' => 0,
+                           'Object::Simple' => '0.0202',
                            'Simo::Util' => '0.0301',
                            'Simo' => '0.1007',
-                           'Simo::Constrain' => '0.0201'
+                           'Object::Simple::Constraint' => 0
                          }
         )
 ;
