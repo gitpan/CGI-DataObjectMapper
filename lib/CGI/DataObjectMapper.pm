@@ -3,7 +3,7 @@ use Object::Simple;
 
 use 5.008_001;
 
-our $VERSION = '0.0106';
+our $VERSION = '0.0107';
 
 use Object::Simple::Constraint qw( is_class_name );
 use Simo::Util qw( decode_values );
@@ -135,7 +135,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0106
+Version 0.0107
 
 =head1 SYNOPSIS
     
