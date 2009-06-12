@@ -3,7 +3,7 @@ use Object::Simple;
 
 use 5.008_001;
 
-our $VERSION = '0.0107';
+our $VERSION = '0.0108';
 
 use Object::Simple::Constraint qw( is_class_name );
 use Simo::Util qw( decode_values );
@@ -123,7 +123,7 @@ sub _create_objects{
     return $objects;
 }
 
-Object::Simple->end; # End of Object::Simple!
+Object::Simple->build_class;
 
 =head1 NAME
 
@@ -135,7 +135,7 @@ This Module is yet experimental stage. Please wait until it will be statble.
 
 =head1 VERSION
 
-Version 0.0107
+Version 0.0108
 
 =head1 SYNOPSIS
     

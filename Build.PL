@@ -12,7 +12,7 @@ my $builder = Module::Build->new(
         'Simo' => 0.1007,
     },
     requires => {
-        'Object::Simple' => 0.0203,
+        'Object::Simple' => 2.0003,
         'Object::Simple::Constraint' => 0,
         'Simo::Util' => 0.0301
     },
