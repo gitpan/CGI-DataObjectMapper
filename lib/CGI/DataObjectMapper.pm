@@ -3,7 +3,7 @@ use Object::Simple;
 
 use 5.008_001;
 
-our $VERSION = '0.0108';
+our $VERSION = '0.0201';
 
 use Object::Simple::Constraint qw( is_class_name );
 use Simo::Util qw( decode_values );
@@ -127,15 +127,18 @@ Object::Simple->build_class;
 
 =head1 NAME
 
-CGI::DataObjectMapper - Data-Object Mapper for CGI form data
+CGI::DataObjectMapper - Data-Object mapper for form data [DISCOURAGED]
 
 =head1 CAUTION
 
-This Module is yet experimental stage. Please wait until it will be statble.
+This module is discouraged now, because there are many useful web application framework.
+like L<Mojo>, L<Catalyst>
+
+I will not maintain this module,
 
 =head1 VERSION
 
-Version 0.0108
+Version 0.0201
 
 =head1 SYNOPSIS
     

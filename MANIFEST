@@ -2,7 +2,7 @@ Build.PL
 Changes
 lib/CGI/DataObjectMapper.pm
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 META.yml
 README
 t/00-load.t
